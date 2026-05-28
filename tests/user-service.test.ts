@@ -25,15 +25,18 @@ class MockUserRepository implements UserRepository {
     return null;
   }
 
-  async findAll() {
+  async findAll(options?: any) {
     return Array.from(this.users.values());
   }
 
   async create(data: any): Promise<User> {
     const user: User = {
       id: crypto.randomUUID(),
-      ...data,
+      tenantId: data.tenantId || 'test-tenant-id',
+      username: data.username,
+      email: data.email,
       passwordHash: 'hashed_' + data.password,
+      role: data.role || 'developer',
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -84,6 +87,7 @@ describe('UserService', () => {
   describe('createUser', () => {
     it('should create a new user successfully', async () => {
       const userData = {
+        tenantId: 'test-tenant-id',
         username: 'testuser',
         email: 'test@example.com',
         password: 'password123',
@@ -100,6 +104,7 @@ describe('UserService', () => {
 
     it('should throw error when username already exists', async () => {
       const userData = {
+        tenantId: 'test-tenant-id',
         username: 'testuser',
         email: 'test@example.com',
         password: 'password123',
@@ -114,6 +119,7 @@ describe('UserService', () => {
 
     it('should throw error when email already exists', async () => {
       const userData = {
+        tenantId: 'test-tenant-id',
         username: 'testuser',
         email: 'test@example.com',
         password: 'password123',
@@ -130,6 +136,7 @@ describe('UserService', () => {
   describe('getUserById', () => {
     it('should get user by id', async () => {
       const userData = {
+        tenantId: 'test-tenant-id',
         username: 'testuser',
         email: 'test@example.com',
         password: 'password123',
@@ -151,6 +158,7 @@ describe('UserService', () => {
   describe('updateUser', () => {
     it('should update user', async () => {
       const userData = {
+        tenantId: 'test-tenant-id',
         username: 'testuser',
         email: 'test@example.com',
         password: 'password123',
@@ -158,16 +166,16 @@ describe('UserService', () => {
 
       const created = await userService.createUser(userData);
       const updated = await userService.updateUser(created.id, {
-        username: 'updateduser',
+        username: 'updateduser' as any,
       });
 
-      expect(updated.username).toBe('updateduser');
+      expect(updated?.username).toBe('updateduser');
     });
 
     it('should throw error when updating non-existent user', async () => {
       const fakeId = '00000000-0000-0000-0000-000000000000';
       await expect(
-        userService.updateUser(fakeId, { username: 'newuser' })
+        userService.updateUser(fakeId, { username: 'newuser' as any })
       ).rejects.toThrow('User not found');
     });
   });
