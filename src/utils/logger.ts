@@ -33,25 +33,37 @@ function formatEntry(entry: LogEntry): string {
 export const logger = {
   debug(message: string, context?: string, data?: unknown): void {
     if (shouldLog('debug')) {
-      console.log(formatEntry({ timestamp: '', level: 'debug', message, context, data }));
+      const entry: LogEntry = { timestamp: '', level: 'debug', message };
+      if (context) entry.context = context;
+      if (data) entry.data = data;
+      console.log(formatEntry(entry));
     }
   },
 
   info(message: string, context?: string, data?: unknown): void {
     if (shouldLog('info')) {
-      console.log(formatEntry({ timestamp: '', level: 'info', message, context, data }));
+      const entry: LogEntry = { timestamp: '', level: 'info', message };
+      if (context) entry.context = context;
+      if (data) entry.data = data;
+      console.log(formatEntry(entry));
     }
   },
 
   warn(message: string, context?: string, data?: unknown): void {
     if (shouldLog('warn')) {
-      console.warn(formatEntry({ timestamp: '', level: 'warn', message, context, data }));
+      const entry: LogEntry = { timestamp: '', level: 'warn', message };
+      if (context) entry.context = context;
+      if (data) entry.data = data;
+      console.warn(formatEntry(entry));
     }
   },
 
   error(message: string, context?: string, data?: unknown): void {
     if (shouldLog('error')) {
-      console.error(formatEntry({ timestamp: '', level: 'error', message, context, data }));
+      const entry: LogEntry = { timestamp: '', level: 'error', message };
+      if (context) entry.context = context;
+      if (data) entry.data = data;
+      console.error(formatEntry(entry));
     }
   },
 

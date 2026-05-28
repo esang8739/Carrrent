@@ -1,16 +1,31 @@
-import { MCPTool, MCPResource, MCPServer } from '@modelcontextprotocol/sdk/types.js';
 import { logger } from '../utils/logger.js';
 
 const mcpLogger = logger.child('mcp');
 
+export interface MCPTool {
+  name: string;
+  description?: string;
+  inputSchema?: Record<string, unknown>;
+  handler: (args: Record<string, unknown>) => Promise<Record<string, unknown>>;
+}
+
+export interface MCPResource {
+  uri: string;
+  name: string;
+  description?: string;
+  mimeType?: string;
+}
+
+export interface MCPServer {
+  tools: Map<string, MCPTool>;
+  resources: Map<string, MCPResource>;
+}
+
 export class SkillMcPServer {
-  private server: MCPServer;
   private tools: Set<string> = new Set();
   private resources: Set<string> = new Set();
 
-  constructor() {
-    this.server = new MCPServer();
-  }
+  constructor() {}
 
   registerTool(tool: MCPTool): void {
     this.tools.add(tool.name);

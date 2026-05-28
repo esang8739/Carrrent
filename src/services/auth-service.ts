@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { User, CreateUserData } from '../models/user.js';
+import { User } from '../models/user.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 
@@ -14,35 +14,31 @@ export interface AuthTokens {
 
 export interface TokenPayload {
   userId: string;
-  username: string;
+  email: string;
   role: User['role'];
 }
 
 export class AuthService {
-  async hashPassword(password: string): Promise<string> {
-    return bcrypt.hash(password, config.bcryptSaltRounds);
-  }
-
   async verifyPassword(password: string, hash: string): Promise<boolean> {
     return bcrypt.compare(password, hash);
   }
 
-  generateAccessToken(user: Pick<User, 'id' | 'username' | 'role'>): string {
+  generateAccessToken(user: Pick<User, 'id' | 'email' | 'role'>): string {
     const payload: TokenPayload = {
       userId: user.id,
-      username: user.username,
+      email: user.email,
       role: user.role,
     };
-    return jwt.sign(payload, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
+    return jwt.sign(payload as jwt.JwtPayload, config.jwtSecret as string, { expiresIn: config.jwtExpiresIn as string } as jwt.SignOptions) as string;
   }
 
-  generateRefreshToken(user: Pick<User, 'id' | 'username' | 'role'>): string {
+  generateRefreshToken(user: Pick<User, 'id' | 'email' | 'role'>): string {
     const payload: TokenPayload = {
       userId: user.id,
-      username: user.username,
+      email: user.email,
       role: user.role,
     };
-    return jwt.sign(payload, config.jwtSecret, { expiresIn: config.jwtRefreshExpiresIn });
+    return jwt.sign(payload as jwt.JwtPayload, config.jwtSecret as string, { expiresIn: config.jwtRefreshExpiresIn as string } as jwt.SignOptions) as string;
   }
 
   verifyToken<T extends TokenPayload>(token: string): T {

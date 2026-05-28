@@ -34,25 +34,28 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
+    "@neondatabase/serverless": "^0.9.5",
+    "bcryptjs": "^2.4.3",
     "fastify": "^5.2.1",
+    "jsonwebtoken": "^9.0.2",
     "postgres": "^3.4.5",
     "redis": "^4.7.0",
     "vm2": "^3.9.19",
-    "zod": "^3.24.1",
-    "jsonwebtoken": "^9.0.2",
-    "bcryptjs": "^2.4.3"
+    "ws": "^8.18.0",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
-    "typescript": "^5.7.3",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.8",
     "@types/node": "^22.13.1",
-    "vitest": "^3.0.5",
+    "@types/ws": "^8.18.1",
+    "@typescript-eslint/eslint-plugin": "^8.22.0",
+    "@typescript-eslint/parser": "^8.22.0",
     "eslint": "^9.18.0",
     "prettier": "^3.4.2",
-    "@types/jsonwebtoken": "^9.0.8",
-    "@types/bcryptjs": "^2.4.6",
     "tsx": "^4.19.2",
-    "@typescript-eslint/eslint-plugin": "^8.22.0",
-    "@typescript-eslint/parser": "^8.22.0"
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
   },
   "engines": {
     "node": ">=20.0.0"

@@ -1,21 +1,21 @@
-import { skillServer } from './mcp/server.js';
-import { createConnection } from './db/connection.js';
-import { runMigrations } from './db/migrate.js';
-import { config } from './utils/config.js';
-import { logger } from './utils/logger.js';
+import { skillServer } from './server.js';
+import { migrate } from '../db/migrate.js';
+import { config } from '../utils/config.js';
+import { logger } from '../utils/logger.js';
 
 const appLogger = logger.child('app');
 
 async function main(): Promise<void> {
+  const env = process.env['NODE_ENV'] || 'development';
+
   appLogger.info('Starting skill-management-server', {
     port: config.serverPort,
-    environment: process.env.NODE_ENV || 'development',
+    environment: env,
   });
 
   try {
     // Initialize database
-    await createConnection();
-    await runMigrations();
+    await migrate();
 
     // Start MCP server
     await skillServer.start();

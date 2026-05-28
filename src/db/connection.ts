@@ -1,70 +1,45 @@
-import postgres from 'postgres';
+import { Pool, neonConfig } from '@neondatabase/serverless';
+import ws from 'ws';
 import { config } from '../utils/config.js';
-import { logger } from '../utils/logger.js';
 
-const dbLogger = logger.child('database');
+neonConfig.webSocketConstructor = ws;
 
-export interface DatabaseConnection {
-  readonly sql: ReturnType<typeof postgres>;
-  close: () => Promise<void>;
-  isConnected: boolean;
-}
+const pool = new Pool({
+  connectionString: config.databaseUrl,
+  max: config.dbMaxConnections,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+});
 
-let connection: DatabaseConnection | null = null;
+export const db = {
+  query: async <T>(sql: string, params?: unknown[]) => {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(sql, params);
+      return result.rows as T[];
+    } finally {
+      client.release();
+    }
+  },
 
-export async function createConnection(): Promise<DatabaseConnection> {
-  if (connection?.isConnected) {
-    return connection;
-  }
+  transaction: async <T>(fn: (client: any) => Promise<T>) => {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const result = await fn(client);
+      await client.query('COMMIT');
+      return result;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
 
-  try {
-    const sql = postgres(config.databaseUrl, {
-      ssl: config.databaseSsl
-        ? { rejectUnauthorized: false }
-        : undefined,
-      min: config.databasePoolMin,
-      max: config.databasePoolMax,
-      onnotice: (notice) => {
-        dbLogger.debug('PostgreSQL notice', { notice });
-      },
-    });
+  close: async () => {
+    await pool.end();
+  },
+};
 
-    // Test connection
-    await sql`SELECT 1 AS connected`;
-
-    connection = {
-      sql,
-      isConnected: true,
-      close: async () => {
-        await sql.end();
-        connection!.isConnected = false;
-        dbLogger.info('Database connection closed');
-      },
-    };
-
-    dbLogger.info('Database connection established');
-    return connection;
-  } catch (error) {
-    dbLogger.error('Failed to establish database connection', {
-      error: error instanceof Error ? error.message : error,
-    });
-    throw error;
-  }
-}
-
-export async function getConnection(): Promise<DatabaseConnection> {
-  if (!connection) {
-    return createConnection();
-  }
-  return connection;
-}
-
-export async function closeConnection(): Promise<void> {
-  if (connection) {
-    await connection.close();
-    connection = null;
-  }
-}
-
-// Re-export postgres types
-export type { Sql } from 'postgres';
+export type QueryResult<T> = T[];

@@ -29,7 +29,7 @@ export class ExecutionService {
         wasm: false,
       });
 
-      const result = vm.run(request.code);
+      const result = vm.run(request.code || '');
 
       memoryUsed = this.getMemoryUsage();
       const executionTime = performance.now() - startTime;
@@ -65,7 +65,7 @@ export class ExecutionService {
     }
   }
 
-  validateCode(code: string, skill?: Skill): ValidationResult {
+  validateCode(code: string, _skill?: Skill): ValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
 

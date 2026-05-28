@@ -1,5 +1,5 @@
 import { User, CreateUserData, UpdateUserData } from '../models/user.js';
-import { UserRepository } from '../repositories/user-repository.js';
+import { UserRepository, FindAllUsersOptions } from '../repositories/user-repository.js';
 import { logger } from '../utils/logger.js';
 
 const serviceLogger = logger.child('userService');
@@ -24,7 +24,16 @@ export class UserService {
   }
 
   async getAllUsers(options?: { limit?: number; offset?: number }): Promise<User[]> {
-    return this.userRepository.findAll(options);
+    const findAllOptions: FindAllUsersOptions = {
+      sortOrder: 'desc',
+    };
+    if (options?.limit !== undefined) {
+      findAllOptions.limit = options.limit;
+    }
+    if (options?.offset !== undefined) {
+      findAllOptions.offset = options.offset;
+    }
+    return this.userRepository.findAll(findAllOptions);
   }
 
   async createUser(data: CreateUserData): Promise<User> {
