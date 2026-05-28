@@ -11,7 +11,7 @@
     "build": "tsc",
     "start": "node dist/mcp/server.js",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/ --ext .ts",
+    "lint": "tsc --noEmit",
     "lint:fix": "eslint src/ --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\"",

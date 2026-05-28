@@ -533,16 +533,34 @@ npm run format
 
 ### 测试
 
+项目使用 Vitest 作为测试框架，包含单元测试和集成测试。
+
 ```bash
 # 运行单元测试
 npm run test
 
-# 监听模式
+# 监听模式（开发时使用）
 npm run test:watch
+
+# 集成测试（需要运行 PostgreSQL 和 Redis）
+docker-compose up -d postgres redis
+npm run test:integration
 
 # 生成覆盖率报告
 npm run test:coverage
 ```
+
+**测试覆盖范围**：
+- ✅ UserService 单元测试 (7 tests)
+- ✅ AuthService 单元测试 (7 tests)
+- ✅ ExecutionService 单元测试 (8 tests)
+- 🚧 HTTP API 集成测试 (需要数据库环境)
+
+**测试代码位置**：
+- `tests/user-service.test.ts` - 用户服务测试
+- `tests/auth-service.test.ts` - 认证服务测试
+- `tests/execution-service.test.ts` - 执行服务测试
+- `tests/integration.test.ts` - API 集成测试（Skipped）
 
 ## 错误码说明
 
