@@ -25,28 +25,71 @@ export class SkillRepository extends BaseRepository<SkillDB, SkillCreate, Partia
   protected tableName = 'skills';
   protected selectQuery = 'SELECT * FROM skills';
 
-  async findByTenant(tenantId: string, status?: string): Promise<SkillDB[]> {
+  public getTenantId(skill: SkillDB): string {
+    return skill.tenant_id;
+  }
+
+  override async findById(id: string): Promise<SkillDB | null> {
+    return super.findById(id);
+  }
+
+  override async findAll(): Promise<SkillDB[]> {
+    return super.findAll();
+  }
+
+  override async create(data: SkillCreate): Promise<SkillDB> {
+    return super.create(data);
+  }
+
+  override async update(id: string, data: Partial<SkillCreate>): Promise<SkillDB | null> {
+    return super.update(id, data);
+  }
+
+  async findByIdAndMap(id: string): Promise<Skill | null> {
+    const row = await super.findById(id);
+    return row ? this.mapFromDB(row) : null;
+  }
+
+  async findAllAndMap(): Promise<Skill[]> {
+    const rows = await super.findAll();
+    return rows.map(row => this.mapFromDB(row));
+  }
+
+  async createAndMap(data: SkillCreate): Promise<Skill> {
+    const row = await super.create(data);
+    return this.mapFromDB(row);
+  }
+
+  async updateAndMap(id: string, data: Partial<SkillCreate>): Promise<Skill | null> {
+    const row = await super.update(id, data);
+    return row ? this.mapFromDB(row) : null;
+  }
+
+  async findByTenant(tenantId: string, status?: string): Promise<Skill[]> {
     const query = status
       ? 'SELECT * FROM skills WHERE tenant_id = $1 AND status = $2'
       : 'SELECT * FROM skills WHERE tenant_id = $1';
     const params = status ? [tenantId, status] : [tenantId];
-    return db.query<SkillDB>(query, params);
+    const rows = await db.query<SkillDB>(query, params);
+    return rows.map(row => this.mapFromDB(row));
   }
 
-  async findByName(tenantId: string, name: string): Promise<SkillDB | null> {
+  async findByName(tenantId: string, name: string): Promise<Skill | null> {
     const rows = await db.query<SkillDB>(
       'SELECT * FROM skills WHERE tenant_id = $1 AND name = $2',
       [tenantId, name]
     );
-    return rows[0] || null;
+    const row = rows[0] || null;
+    return row ? this.mapFromDB(row) : null;
   }
 
-  async updateStatus(id: string, status: 'draft' | 'published' | 'archived'): Promise<SkillDB | null> {
+  async updateStatus(id: string, status: 'draft' | 'published' | 'archived'): Promise<Skill | null> {
     const rows = await db.query<SkillDB>(
       'UPDATE skills SET status = $2, updated_at = NOW() WHERE id = $1 RETURNING *',
       [id, status]
     );
-    return rows[0] || null;
+    const row = rows[0] || null;
+    return row ? this.mapFromDB(row) : null;
   }
 
   protected mapFromDB(db: SkillDB): Skill {
@@ -66,27 +109,61 @@ export class SkillVersionRepository extends BaseRepository<SkillVersionDB, Skill
   protected tableName = 'skill_versions';
   protected selectQuery = 'SELECT id, skill_id, version, input_schema, output_schema, code_path, published_at, created_at, updated_at FROM skill_versions';
 
-  async findBySkill(skillId: string): Promise<SkillVersionDB[]> {
-    return db.query<SkillVersionDB>(
+  override async findById(id: string): Promise<SkillVersionDB | null> {
+    return super.findById(id);
+  }
+
+  override async findAll(): Promise<SkillVersionDB[]> {
+    return super.findAll();
+  }
+
+  override async create(data: SkillVersionCreate): Promise<SkillVersionDB> {
+    return super.create(data);
+  }
+
+  async findByIdAndMap(id: string): Promise<SkillVersion | null> {
+    const row = await super.findById(id);
+    return row ? this.mapFromDB(row) : null;
+  }
+
+  async findAllAndMap(): Promise<SkillVersion[]> {
+    const rows = await super.findAll();
+    return rows.map(row => this.mapFromDB(row));
+  }
+
+  async createAndMap(data: SkillVersionCreate): Promise<SkillVersion> {
+    const row = await super.create(data);
+    return this.mapFromDB(row);
+  }
+
+  async findBySkill(skillId: string): Promise<SkillVersion[]> {
+    const rows = await db.query<SkillVersionDB>(
       'SELECT * FROM skill_versions WHERE skill_id = $1 ORDER BY published_at DESC',
       [skillId]
     );
+    return rows.map(row => this.mapFromDB(row));
   }
 
-  async findByVersion(skillId: string, version: string): Promise<SkillVersionDB | null> {
+  async findByVersion(skillId: string, version: string): Promise<SkillVersion | null> {
     const rows = await db.query<SkillVersionDB>(
       'SELECT * FROM skill_versions WHERE skill_id = $1 AND version = $2',
       [skillId, version]
     );
-    return rows[0] || null;
+    const row = rows[0] || null;
+    return row ? this.mapFromDB(row) : null;
   }
 
-  async findLatest(skillId: string): Promise<SkillVersionDB | null> {
+  async findLatest(skillId: string): Promise<SkillVersion | null> {
     const rows = await db.query<SkillVersionDB>(
       'SELECT * FROM skill_versions WHERE skill_id = $1 ORDER BY published_at DESC LIMIT 1',
       [skillId]
     );
-    return rows[0] || null;
+    const row = rows[0] || null;
+    return row ? this.mapFromDB(row) : null;
+  }
+
+  public getPublishedAt(version: SkillVersionDB): Date {
+    return version.published_at;
   }
 
   protected mapFromDB(db: SkillVersionDB): SkillVersion {

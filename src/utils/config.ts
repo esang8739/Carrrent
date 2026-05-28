@@ -35,7 +35,7 @@ const configSchema = z.object({
 
 export type Config = z.infer<typeof configSchema>;
 
-function loadConfig(): Config {
+export function loadConfig(): Config {
   const raw = {
     serverHost: process.env['SERVER_HOST'] || '0.0.0.0',
     serverPort: process.env['SERVER_PORT'] || '3000',

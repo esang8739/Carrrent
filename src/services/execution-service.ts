@@ -1,16 +1,46 @@
 import { VM } from 'vm2';
-import { ExecuteSkillRequest, ExecuteSkillResult, Skill } from '../models/skill.js';
+import { SkillVersion } from '../models/skill.js';
 import { config } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
+import { SkillRegistry } from './skill-registry.js';
 
 const executionLogger = logger.child('execution');
 
+export interface ExecutionRequest {
+  skillId: string;
+  tenantId: string;
+  version?: string;
+  parameters: Record<string, unknown>;
+  code?: string;
+  timeout?: number;
+  memoryLimit?: number;
+}
+
+export interface ExecutionResult {
+  success: boolean;
+  output?: unknown;
+  error?: string;
+  executionTime: number;
+  memoryUsed: number;
+}
+
+export interface ValidationResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
 export class ExecutionService {
-  async execute(request: ExecuteSkillRequest): Promise<ExecuteSkillResult> {
-    const { parameters, timeout = config.sandboxTimeout, memoryLimit = config.sandboxMemoryLimit } = request;
+  constructor(private registry: SkillRegistry) {}
+
+  async execute(request: ExecutionRequest): Promise<ExecutionResult> {
+    const timeout = request.timeout || config.sandboxTimeout;
+    const memoryLimit = request.memoryLimit || config.sandboxMemoryLimit;
 
     executionLogger.info('Executing skill', {
       skillId: request.skillId,
+      tenantId: request.tenantId,
+      version: request.version || 'latest',
       timeout,
       memoryLimit,
     });
@@ -19,17 +49,32 @@ export class ExecutionService {
     let memoryUsed = 0;
 
     try {
+      let skillVersion: SkillVersion;
+      let code: string;
+
+      if (request.code) {
+        code = request.code;
+      } else {
+        skillVersion = await this.registry.getSkill(request.skillId, request.version);
+        code = await this.registry.getSkillCode(skillVersion);
+      }
+
+      const validation = this.validateCode(code);
+      if (!validation.valid) {
+        throw new Error(`Code validation failed: ${validation.errors.join(', ')}`);
+      }
+
       const vm = new VM({
         timeout,
         sandbox: {
-          params: parameters,
+          params: request.parameters,
           console,
         },
         eval: false,
         wasm: false,
       });
 
-      const result = vm.run(request.code || '');
+      const result = vm.run(code);
 
       memoryUsed = this.getMemoryUsage();
       const executionTime = performance.now() - startTime;
@@ -49,11 +94,13 @@ export class ExecutionService {
     } catch (error) {
       const executionTime = performance.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const isTimeout = errorMessage.includes('timeout');
 
       executionLogger.error('Skill execution failed', {
         skillId: request.skillId,
         error: errorMessage,
         executionTime,
+        isTimeout,
       });
 
       return {
@@ -65,7 +112,7 @@ export class ExecutionService {
     }
   }
 
-  validateCode(code: string, _skill?: Skill): ValidationResult {
+  validateCode(code: string): ValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
 
@@ -86,6 +133,8 @@ export class ExecutionService {
       /XMLHttpRequest/i,
       /http\s*\./i,
       /net\s*\./i,
+      /fs\s*\./i,
+      /child_process/i,
     ];
 
     for (const pattern of forbiddenPatterns) {
@@ -107,10 +156,4 @@ export class ExecutionService {
     }
     return 0;
   }
-}
-
-export interface ValidationResult {
-  valid: boolean;
-  errors: string[];
-  warnings: string[];
 }

@@ -16,12 +16,13 @@ export class TenantRepository extends BaseRepository<TenantDB, TenantCreate, Ten
   protected tableName = 'tenants';
   protected selectQuery = 'SELECT * FROM tenants';
 
-  async findByApiKey(apiKey: string): Promise<TenantDB | null> {
+  async findByApiKey(apiKey: string): Promise<Tenant | null> {
     const rows = await db.query<TenantDB>(
       'SELECT * FROM tenants WHERE api_key = $1 AND enabled = true',
       [apiKey]
     );
-    return rows[0] || null;
+    const row = rows[0] || null;
+    return row ? this.mapFromDB(row) : null;
   }
 
   async checkQuota(tenantId: string): Promise<{ quotaLimit: number; quotaUsed: number; remaining: number }> {

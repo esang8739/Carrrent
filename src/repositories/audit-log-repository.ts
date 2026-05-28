@@ -2,7 +2,7 @@ import { BaseRepository, BaseEntity } from '../db/base-repository.js';
 import { AuditLog, AuditLogCreate, AuditLogQuery } from '../models/audit-log.js';
 import { db } from '../db/connection.js';
 
-interface AuditLogDB extends BaseEntity {
+export interface AuditLogDB extends BaseEntity {
   tenant_id: string;
   skill_id: string;
   user_id: string | null;
@@ -47,7 +47,7 @@ export class AuditLogRepository extends BaseRepository<AuditLogDB, AuditLogCreat
     );
   }
 
-  async query(params: AuditLogQuery): Promise<AuditLogDB[]> {
+  async query(params: AuditLogQuery): Promise<AuditLog[]> {
     const conditions: string[] = ['tenant_id = $1'];
     const values: unknown[] = [params.tenantId];
     let paramIndex = 2;
@@ -82,7 +82,8 @@ export class AuditLogRepository extends BaseRepository<AuditLogDB, AuditLogCreat
 
     values.push(params.limit, params.offset);
 
-    return db.query<AuditLogDB>(query, values);
+    const rows = await db.query<AuditLogDB>(query, values);
+    return rows.map(row => this.mapFromDB(row));
   }
 
   async count(queryParams: Omit<AuditLogQuery, 'limit' | 'offset'>): Promise<number> {

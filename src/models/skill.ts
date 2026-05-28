@@ -64,6 +64,9 @@ export const ExecuteSkillRequestSchema = z.object({
 
 export type ExecuteSkillRequest = z.infer<typeof ExecuteSkillRequestSchema>;
 
+export const SkillStatusSchema = z.enum(['draft', 'published', 'archived']);
+export type SkillStatus = z.infer<typeof SkillStatusSchema>;
+
 export interface ExecuteSkillResult {
   success: boolean;
   output?: unknown;
