@@ -1,16 +1,16 @@
 # Skill Management Server
 
-基于 MCP (Model Context Protocol) 的技能管理服务器，提供安全可靠的代码执行环境和完整的技能生命周期管理。
+基于 MCP (Model Context Protocol) 的技能管理服务器，提供安全沙箱代码执行环境和完整的技能生命周期管理。
 
 ## 特性
 
-- 基于 MCP 协议与 AI 客户端（如 Claude、Cursor）深度集成
-- 支持安全沙箱代码执行（JavaScript/TypeScript）
-- 完整的用户认证和权限管理（JWT）
-- PostgreSQL + Redis 数据存储
-- RESTful API 和 MCP RPC 双协议支持
-- 实时日志和指标监控
-- Docker 容器化部署
+- **MCP 协议支持**: 与 Claude Desktop、Cursor 等 MCP 客户端深度集成
+- **安全沙箱执行**: 基于 vm2 的代码隔离执行（JavaScript/TypeScript）
+- **多租户架构**: 单组织多团队，完整的用户认证和权限管理（JWT）
+- **双协议支持**: RESTful HTTP API + MCP RPC
+- **数据持久化**: PostgreSQL + Redis
+- **审计日志**: 请求级日志记录和实时指标监控
+- **Docker 部署**: 一键容器化部署
 
 ## 架构图
 
@@ -24,77 +24,97 @@
 │           └────────────────┼──────────────────────┘               │
 │                            │                                       │
 └────────────────────────────┼──────────────────────────────────────┘
-                             │  MCP Protocol
+                             │  MCP Protocol (Stdio/SSE)
 ┌────────────────────────────▼──────────────────────────────────────┐
-│                      MCP Server (Port 3000)                       │
-│                                                                   │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐   │
-│  │  Authentication │  │  Skill Management│  │   Execution     │   │
-│  │    Service      │  │     Service      │  │    Service      │   │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘   │
-│                                                                   │
-│         ┌──────────────────┐     ┌──────────────────────┐         │
-│         │  VM2 Sandbox     │     │  Fastify HTTP API    │         │
-│         │  (VM Isolation)  │     │  (RESTful Interface) │         │
-│         └──────────────────┘     └──────────────────────┘         │
+│                  Skill Management Server                           │
+│                                                                    │
+│  ┌────────────────────────────────────────────────────────────┐   │
+│  │                    MCP Server Layer                         │   │
+│  │  - tools/list        - tools/call                          │   │
+│  │  - resources/list    - prompts/list                        │   │
+│  └────────────────────────────────────────────────────────────┘   │
+│                                                                    │
+│  ┌────────────────────────────────────────────────────────────┐   │
+│  │                    HTTP API Layer (Fastify)                │   │
+│  │  - /api/tenants      - /api/users                          │   │
+│  │  - /api/skills       - /api/logs  /api/metrics             │   │
+│  └────────────────────────────────────────────────────────────┘   │
+│                                                                    │
+│  ┌────────────────────────────────────────────────────────────┐   │
+│  │                    Core Services                            │   │
+│  │  AuthService  │  SkillRegistry  │  ExecutionService        │   │
+│  │  AuditLoggerService                                      │   │
+│  └────────────────────────────────────────────────────────────┘   │
+│                                                                    │
+│  ┌──────────────────┐     ┌──────────────────┐                    │
+│  │  VM2 Sandbox     │     │  Skill Storage   │                    │
+│  │  - Timeout: 30s  │     │  - Local FS      │                    │
+│  │  - Memory: 512MB │     │  - extensible    │                    │
+│  │  - No require()  │     │    to S3/OBS     │                    │
+│  └──────────────────┘     └──────────────────┘                    │
 └───────────────────────────────────────────────────────────────────┘
-                    │                           │
-        ┌───────────▼───────┐       ┌───────────▼───────┐           │
-        │    PostgreSQL     │       │       Redis       │           │
-        │  ┌───────────────┐│       │  ┌───────────────┐│           │
-        │  │ Users         ││       │  │ Sessions      ││           │
-        │  │ Skills        ││       │  │ Cache         ││           │
-        │  │ Logs          ││       │  │ Rate Limits   ││           │
-        │  └───────────────┘│       │  └───────────────┘│           │
-        └───────────────────┘       └───────────────────┘           │
+                     │                           │
+         ┌───────────▼───────┐       ┌───────────▼───────┐
+         │    PostgreSQL     │       │       Redis       │
+         │  - Tenants        │       │  - Quota Cache    │
+         │  - Users          │       │  - Rate Limits    │
+         │  - Skills         │       │  - Metrics        │
+         │  - AuditLogs      │       │                   │
+         └───────────────────┘       └───────────────────┘
 ```
 
 ## 快速开始
 
-### 1. 环境要求
+### 环境要求
 
 - Node.js >= 20.0.0
-- PostgreSQL >= 14
+- PostgreSQL >= 15
 - Redis >= 7.0
 - Docker & Docker Compose (推荐)
 
-### 2. 使用 Docker 启动（推荐）
+### 使用 Docker 启动（推荐）
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-org/skill-management-server.git
-cd skill-management-server
+# 克隆仓库
+git clone https://github.com/esang8739/Carrrent.git
+cd Carrrent/skill-management-server
 
-# Copy environment configuration
+# 复制环境配置
 cp .env.example .env
 
-# Start all services
+# 配置环境变量（必须修改）
+# 编辑 .env 文件，设置 DATABASE_URL、REDIS_URL、JWT_SECRET
+
+# 启动所有服务
 docker-compose up -d
 
-# Check logs
+# 初始化数据库
+docker-compose exec app npm run db:migrate
+
+# 查看日志
 docker-compose logs -f app
 ```
 
-### 3. 本地开发
+### 本地开发
 
 ```bash
-# Install dependencies
+# 安装依赖
 npm install
 
-# Copy environment configuration
+# 复制环境配置
 cp .env.example .env
 
-# Start PostgreSQL and Redis
+# 启动 PostgreSQL 和 Redis
 docker-compose up -d postgres redis
 
-# Create database tables
-# TODO: Add migration scripts
+# 初始化数据库
+npm run db:migrate
 
-# Start development server
+# 启动开发服务器
 npm run dev
 ```
 
-### 4. 健康检查
+### 健康检查
 
 ```bash
 curl http://localhost:3000/health
@@ -104,29 +124,31 @@ curl http://localhost:3000/health
 
 ### Claude Desktop 配置
 
-在 `claude_desktop_config.json` 中添加：
+编辑 `claude_desktop_config.json`（位置：macOS `~/Library/Application Support/Claude/`，Windows `%APPDATA%\Claude\`）：
 
 ```json
 {
   "mcpServers": {
     "skill-management": {
       "command": "node",
-      "args": ["/path/to/skill-management-server/dist/mcp/server.js"],
-      "cwd": "/path/to/skill-management-server"
+      "args": ["/path/to/Carrrent/skill-management-server/dist/mcp/index.js"],
+      "cwd": "/path/to/Carrrent/skill-management-server",
+      "env": {
+        "SKILL_API_KEY": "your-tenant-api-key"
+      }
     }
   }
 }
 ```
 
-### 远程 MCP 连接
+### 远程 MCP 连接（SSE 传输）
 
 ```json
 {
   "mcpServers": {
     "skill-management": {
-      "url": "http://your-server:3000/mcp",
-      "token": "your-api-token",
-      "transport": "http"
+      "url": "http://your-server:3000/mcp/sse",
+      "transport": "sse"
     }
   }
 }
@@ -134,17 +156,17 @@ curl http://localhost:3000/health
 
 ## API 参考
 
-### 认证接口
+### 租户管理
 
-#### 登录
+#### 创建租户
 
 ```bash
-POST /api/v1/auth/login
+POST /api/tenants
 Content-Type: application/json
 
 {
-  "email": "user@example.com",
-  "password": "password123"
+  "name": "My Team",
+  "quotaLimit": 10000
 }
 ```
 
@@ -152,231 +174,263 @@ Content-Type: application/json
 
 ```json
 {
-  "accessToken": "eyJhbGciOiJIUzI1NiIs...",
-  "refreshToken": "eyJhbGciOiJIUzI1NiIs...",
-  "expiresIn": 86400
+  "tenant": {
+    "id": "uuid",
+    "name": "My Team",
+    "quotaLimit": 10000,
+    "enabled": true
+  },
+  "apiKey": "sk_..."
 }
 ```
 
-#### 刷新 Token
+#### 获取租户详情
 
 ```bash
-POST /api/v1/auth/refresh
+GET /api/tenants/:id
+```
+
+#### 更新租户
+
+```bash
+PUT /api/tenants/:id
 Content-Type: application/json
 
 {
-  "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
+  "name": "Updated Name",
+  "quotaLimit": 20000,
+  "enabled": false
 }
 ```
 
-### Skill 接口
+#### 删除租户
+
+```bash
+DELETE /api/tenants/:id
+```
+
+#### 轮换 API Key
+
+```bash
+POST /api/tenants/:id/api-keys/rotate
+```
+
+### 用户管理
+
+#### 创建用户
+
+```bash
+POST /api/users
+Content-Type: application/json
+
+{
+  "tenantId": "uuid",
+  "email": "user@example.com",
+  "password": "SecureP@ssw0rd",
+  "role": "developer"
+}
+```
+
+角色：`admin` | `developer` | `viewer`
+
+#### 列出用户
+
+```bash
+GET /api/users
+```
+
+#### 修改用户角色
+
+```bash
+PUT /api/users/:id/role
+Content-Type: application/json
+
+{
+  "role": "admin"
+}
+```
+
+### Skill 管理
 
 #### 创建 Skill
 
 ```bash
-POST /api/v1/skills
-Authorization: Bearer <access_token>
+POST /api/skills
 Content-Type: application/json
 
 {
+  "tenantId": "uuid",
   "name": "data-processor",
-  "description": "Process data with custom logic",
-  "version": "1.0.0",
-  "author": "username",
-  "codeType": "typescript",
-  "code": "export function process(data) { return data; }"
+  "description": "Process data with custom logic"
 }
 ```
 
-#### 获取 Skill
+#### 列出 Skills
 
 ```bash
-GET /api/v1/skills/{id}
-Authorization: Bearer <access_token>
+GET /api/skills?tenantId=uuid
 ```
 
-#### 执行 Skill
+#### 发布 Skill
 
 ```bash
-POST /api/v1/skills/{id}/execute
-Authorization: Bearer <access_token>
+PUT /api/skills/:id/publish
 Content-Type: application/json
 
 {
-  "parameters": {
-    "key": "value"
+  "version": "1.0.0",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "data": { "type": "object" }
+    },
+    "required": ["data"]
   },
-  "timeout": 5000,
-  "memoryLimit": 128
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "result": { "type": "object" }
+    }
+  },
+  "code": "export function execute(params) { return params.data; }"
 }
 ```
 
-响应：
-
-```json
-{
-  "success": true,
-  "output": { "processed": true },
-  "executionTime": 45,
-  "memoryUsed": 32
-}
-```
-
-#### 列出所有 Skills
+#### 下架 Skill
 
 ```bash
-GET /api/v1/skills
-Authorization: Bearer <access_token>
+PUT /api/skills/:id/archive
+```
+
+### 审计日志
+
+#### 查询日志
+
+```bash
+GET /api/logs?tenantId=uuid&skillId=uuid&status=success&limit=100&offset=0
 ```
 
 查询参数：
-- `status` - 过滤状态 (draft/active/archived/disabled)
-- `codeType` - 过滤代码类型 (javascript/typescript/python)
-- `limit` - 分页大小 (默认 20)
-- `offset` - 分页偏移 (默认 0)
-- `sortBy` - 排序字段
-- `sortOrder` - 排序方向 (asc/desc)
+- `tenantId` (必需) - 租户 ID
+- `skillId` (可选) - Skill ID
+- `status` (可选) - success | error | timeout
+- `startDate` (可选) - ISO 8601 格式
+- `endDate` (可选) - ISO 8601 格式
+- `limit` (可选) - 默认 100
+- `offset` (可选) - 默认 0
 
-#### 更新 Skill
+#### 获取指标
 
 ```bash
-PUT /api/v1/skills/{id}
-Authorization: Bearer <access_token>
-Content-Type: application/json
+GET /api/metrics?tenantId=uuid&windowMs=3600000
+```
 
+返回过去 1 小时的指标：
+
+```json
 {
-  "name": "updated-name",
-  "description": "updated description",
-  "status": "active"
+  "metrics": {
+    "qps": 12.5,
+    "p99Latency": 245,
+    "p95Latency": 180,
+    "errorRate": 0.02,
+    "totalRequests": 45000
+  }
 }
-```
-
-#### 删除 Skill
-
-```bash
-DELETE /api/v1/skills/{id}
-Authorization: Bearer <access_token>
-```
-
-### 用户接口
-
-#### 获取当前用户信息
-
-```bash
-GET /api/v1/users/me
-Authorization: Bearer <access_token>
-```
-
-#### 列出所有用户
-
-```bash
-GET /api/v1/users
-Authorization: Bearer <access_token>
-Query: ?role=admin&limit=10&offset=0
 ```
 
 ## MCP 工具列表
 
+启动 MCP 服务器后，AI 客户端可用的工具：
+
 | 工具名称 | 描述 | 参数 |
 |---------|------|------|
-| `list_skills` | 列出所有可用技能 | - |
-| `get_skill` | 获取技能详情 | skill_id (string) |
-| `create_skill` | 创建新技能 | name, description, code, codeType |
-| `update_skill` | 更新技能 | skill_id, name?, description?, code? |
-| `delete_skill` | 删除技能 | skill_id |
-| `execute_skill` | 执行技能代码 | skill_id, parameters |
-| `create_user` | 创建用户 | username, email, password |
-| `get_user` | 获取用户信息 | user_id |
-| `list_users` | 列出所有用户 | - |
-| `validate_code` | 验证代码安全性 | code, codeType |
+| `list_skills` | 列出当前租户发布的所有技能 | - |
+| `execute_skill` | 执行指定技能 | `name` (string), `parameters` (object) |
 
-## MCP Resources
+示例用法（在 Claude Desktop 中）：
 
-| URI 类型 | 描述 |
-|---------|------|
-| `skills://metadata` | 技能元数据列表 |
-| `skills://{id}/details` | 特定技能详情 |
-| `skills://{id}/logs` | 技能执行日志 |
+```
+Use the list_skills tool to see available skills
+
+Then execute: execute_skill with name="data-processor" and parameters={"data": {"key": "value"}}
+```
 
 ## Skill 开发指南
 
-### 1. 基础模板
+### 基础模板
 
 ```typescript
-// 标准 Skill 模板
-export interface Input {
-  // 定义输入参数
-  data: any;
-  options?: {
-    timeout?: number;
-    retry?: number;
-  };
-}
-
-export function process(input: Input): Output {
-  const { data, options } = input;
-  
+// Skill 代码必须导出一 execute 函数
+export function execute(params: Record<string, unknown>): unknown {
   // 业务逻辑
-  const result = processData(data, options);
+  const { data, options } = params;
+  
+  const result = processData(data);
   
   return {
     success: true,
-    data: result
+    result
   };
 }
 
-// 辅助函数
-function processData(data: any, options: any): any {
-  // 实现数据处理逻辑
+function processData(data: unknown): unknown {
+  // 数据处理逻辑
   return data;
 }
 ```
 
-### 2. 安全注意事项
+### 安全限制
 
-- 不要使用 `require()` 或 `import` 引入外部模块
-- 禁止使用 `eval()`、`Function` 等动态执行
-- 禁止网络请求（http、fetch 等）
-- 代码大小限制 1MB
-- 执行超时 5 秒（可配置）
-- 内存限制 128MB（可配置）
+Skill 代码在 vm2 沙箱中执行，以下操作被禁止：
 
-### 3. 错误处理
+- ❌ 使用 `require()` 或 `import` 引入外部模块
+- ❌ 使用 `eval()`、`Function()` 动态执行代码
+- ❌ 网络请求（`fetch`、`http`、`net` 模块）
+- ❌ 文件系统访问（`fs` 模块）
+- ❌ 子进程执行（`child_process` 模块）
+- ❌ WebAssembly 执行
+- ❌ 代码大小超过 1MB
+
+### 执行限制
+
+| 限制项 | 默认值 | 可配置 |
+|-------|--------|--------|
+| 执行超时 | 30 秒 | ✅ |
+| 内存限制 | 512MB | ✅ |
+| 代码大小 | 1MB | ❌ |
+
+### 错误处理
 
 ```typescript
-export function process(input: Input): Output {
+export function execute(params: Record<string, unknown>): unknown {
   try {
-    // 业务逻辑
-    return {
-      success: true,
-      data: result
-    };
+    const result = processData(params.data);
+    return { success: true, result };
   } catch (error) {
-    console.error('Processing failed:', error.message);
-    return {
-      success: false,
-      error: error.message,
-      code: 'PROCESSING_ERROR'
+    console.error('Execution failed:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error'
     };
   }
 }
 ```
 
-### 4. 测试示例
+### 测试示例
 
 ```typescript
 import { describe, it, expect } from 'vitest';
-import { process } from './skill';
+import { execute } from './my-skill';
 
-describe('Skill Tests', () => {
+describe('My Skill', () => {
   it('should process data correctly', () => {
-    const result = process({ data: { key: 'value' } });
-    expect(result.success).toBe(true);
-    expect(result.data).toEqual({ key: 'value' });
+    const result = execute({ data: { key: 'value' } });
+    expect(result).toEqual({ success: true, result: { key: 'value' } });
   });
 
   it('should handle errors gracefully', () => {
-    const result = process({ data: null });
+    const result = execute({ data: null });
     expect(result.success).toBe(false);
     expect(result.error).toBeDefined();
   });
@@ -385,152 +439,85 @@ describe('Skill Tests', () => {
 
 ## 部署指南
 
-### Docker 部署
+### Docker Compose 部署
 
 ```bash
-# Build and start
+# 构建并启动
 docker-compose up -d
 
-# Check status
+# 查看状态
 docker-compose ps
 
-# View logs
+# 查看日志
 docker-compose logs -f app
 
-# Stop all services
-docker-compose down --volumes
-```
-
-### Kubernetes 部署
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: skill-mgmt
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: skill-mgmt
-  template:
-    metadata:
-      labels:
-        app: skill-mgmt
-    spec:
-      containers:
-      - name: app
-        image: your-registry/skill-management-server:latest
-        ports:
-        - containerPort: 3000
-        envFrom:
-        - secretRef:
-            name: skill-mgmt-secrets
-        - configMapRef:
-            name: skill-mgmt-config
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: skill-mgmt-service
-spec:
-  selector:
-    app: skill-mgmt
-  ports:
-    - port: 80
-      targetPort: 3000
-  type: ClusterIP
+# 停止所有服务
+docker-compose down
 ```
 
 ### 环境变量配置
 
-| 变量名 | 默认值 | 说明 |
-|-------|--------|------|
-| SERVER_HOST | 0.0.0.0 | 服务器监听地址 |
-| SERVER_PORT | 3000 | 服务器端口 |
-| DATABASE_URL | - | PostgreSQL 连接字符串 |
-| REDIS_URL | redis://localhost:6379 | Redis 连接字符串 |
-| JWT_SECRET | - | JWT 密钥（生产环境必须修改） |
-| JWT_EXPIRES_IN | 24h | Token 有效期 |
-| BCRYPT_SALT_ROUNDS | 10 | 密码哈希轮数 |
-| SANDBOX_TIMEOUT | 5000 | 代码执行超时（ms） |
-| SANDBOX_MEMORY_LIMIT | 128 | 代码执行内存限制（MB） |
+| 变量名 | 默认值 | 说明 | 必需 |
+|-------|--------|------|------|
+| `NODE_ENV` | development | 运行环境 | ❌ |
+| `SERVER_HOST` | 0.0.0.0 | 服务器监听地址 | ❌ |
+| `SERVER_PORT` | 3000 | 服务器端口 | ❌ |
+| `SERVER_LOG_LEVEL` | info | 日志级别 | ❌ |
+| `DATABASE_URL` | - | PostgreSQL 连接字符串 | ✅ |
+| `DATABASE_SSL` | false | 数据库 SSL | ❌ |
+| `DATABASE_POOL_MIN` | 2 | 连接池最小连接数 | ❌ |
+| `DATABASE_POOL_MAX` | 10 | 连接池最大连接数 | ❌ |
+| `REDIS_URL` | - | Redis 连接字符串 | ✅ |
+| `REDIS_PREFIX` | skills: | Redis key 前缀 | ❌ |
+| `JWT_SECRET` | - | JWT 密钥（生产环境必须修改） | ✅ |
+| `JWT_EXPIRES_IN` | 24h | Access Token 有效期 | ❌ |
+| `JWT_REFRESH_EXPIRES_IN` | 7d | Refresh Token 有效期 | ❌ |
+| `BCRYPT_SALT_ROUNDS` | 10 | 密码哈希轮数 | ❌ |
+| `SANDBOX_MEMORY_LIMIT` | 512 | 沙箱内存限制 (MB) | ❌ |
+| `SANDBOX_TIMEOUT` | 30000 | 沙箱执行超时 (ms) | ❌ |
+| `SKILL_STORAGE_PATH` | ./skills | Skill 代码存储路径 | ❌ |
 
-### 数据库初始化
+### 生产环境建议
 
-```sql
--- 创建扩展
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+1. **安全性**
+   - 设置强 JWT_SECRET（至少 32 字符）
+   - 启用数据库 SSL 连接
+   - 使用防火墙限制访问
+   - 定期轮换 API Key
 
--- 用户表
-CREATE TABLE users (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  username VARCHAR(50) UNIQUE NOT NULL,
-  email VARCHAR(255) UNIQUE NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
-  role VARCHAR(20) NOT NULL DEFAULT 'developer',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  last_login_at TIMESTAMP
-);
+2. **性能优化**
+   - 调整连接池大小（根据并发量）
+   - 使用 Redis 缓存热点 Skill
+   - 配置日志轮转（避免磁盘爆满）
 
--- 技能表
-CREATE TABLE skills (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name VARCHAR(100) UNIQUE NOT NULL,
-  description TEXT,
-  version VARCHAR(20) NOT NULL,
-  author VARCHAR(50) NOT NULL,
-  code_type VARCHAR(20) NOT NULL,
-  code TEXT NOT NULL,
-  status VARCHAR(20) NOT NULL DEFAULT 'draft',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+3. **监控告警**
+   - 监控 CPU/内存使用率
+   - 设置错误率告警（>5% 触发）
+   - 监控 P99 延迟
+   - 配置日志聚合（ELK/Loki）
 
--- 索引
-CREATE INDEX idx_skills_status ON skills(status);
-CREATE INDEX idx_skills_author ON skills(author);
-CREATE INDEX idx_users_username ON users(username);
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_role ON users(role);
-```
-
-### 监控和日志
-
-```bash
-# 查看实时日志
-docker-compose logs -f app
-
-# 查看 PostgreSQL 日志
-docker-compose logs -f postgres
-
-# 查看 Redis 日志
-docker-compose logs -f redis
-
-# 进入容器调试
-docker-compose exec app sh
-
-# 数据库连接
-docker-compose exec postgres psql -U postgres -d skill_management
-```
+4. **高可用**
+   - 使用 Docker Swarm 或 Kubernetes
+   - 配置多副本负载均衡
+   - 数据库主从复制
+   - Redis Sentinel 或 Cluster
 
 ## 开发规范
 
-### 代码提交
+### Git 提交规范
 
-```bash
+```
 feat: 添加新功能
 fix: 修复 bug
 docs: 文档更新
-style: 代码格式化
-refactor: 重构代码
+style: 代码格式化（不影响代码逻辑）
+refactor: 重构代码（非新功能非 bug 修复）
 perf: 性能优化
 test: 测试用例
-chore: 构建/工具链相关
+chore: 构建/工具链/配置相关
 ```
 
-### Lint && Format
+### 代码检查
 
 ```bash
 # TypeScript 类型检查
@@ -542,20 +529,87 @@ npm run lint:fix
 
 # Prettier 格式化
 npm run format
-npm run format:check
 ```
 
 ### 测试
 
 ```bash
-# 单元测试
+# 运行单元测试
 npm run test
 
 # 监听模式
 npm run test:watch
 
-# 覆盖率报告
+# 生成覆盖率报告
 npm run test:coverage
+```
+
+## 错误码说明
+
+### MCP 错误码
+
+| 错误码 | 含义 | 处理建议 |
+|-------|------|----------|
+| -32001 | Invalid API Key | 检查 API Key 是否正确 |
+| -32002 | Skill Not Found | 确认 Skill ID 和发布状态 |
+| -32003 | Permission Denied | 检查租户权限 |
+| -32004 | Quota Exceeded | 提升配额或等待下月 |
+| -32005 | Execution Timeout | 优化代码或增加超时配置 |
+| -32006 | Execution Error | 查看错误详情并修复代码 |
+| -32007 | Invalid Input | 检查输入参数是否符合 Schema |
+
+## 故障排查
+
+### 常见问题
+
+**1. MCP Server 无法启动**
+
+```bash
+# 检查 Node.js 版本
+node --version  # 必须 >= 20
+
+# 检查依赖安装
+npm install
+
+# 查看启动日志
+npm run dev
+```
+
+**2. 数据库连接失败**
+
+```bash
+# 测试数据库连接
+docker-compose exec postgres psql -U postgres -d skill_management -c "SELECT 1"
+
+# 检查连接字符串格式
+# 正确格式：postgresql://user:password@host:port/database
+```
+
+**3. Skill 执行超时**
+
+- 检查代码是否存在死循环
+- 增加 `SANDBOX_TIMEOUT` 配置
+- 优化算法复杂度
+
+**4. Redis 连接失败**
+
+```bash
+# 测试 Redis 连接
+docker-compose exec redis redis-cli ping
+# 应返回：PONG
+```
+
+### 日志查看
+
+```bash
+# 实时日志
+docker-compose logs -f app
+
+# 最近 100 行
+docker-compose logs --tail=100 app
+
+# 错误日志
+docker-compose logs app | grep ERROR
 ```
 
 ## License
@@ -568,5 +622,5 @@ MIT
 
 ## 联系方式
 
-- GitHub Issues: https://github.com/your-org/skill-management-server/issues
-- Email: support@example.com
+- GitHub: https://github.com/esang8739/Carrrent
+- Issues: https://github.com/esang8739/Carrrent/issues
